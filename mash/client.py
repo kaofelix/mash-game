@@ -37,15 +37,27 @@ class Player(object):
     def move(self, direction, dt):
         self.position = Vec2(self.position) + direction * self.speed * dt
 
+    def look_at(self, other_pos):
+        v = (other_pos[0] - self.position[0], other_pos[1] - self.position[1])
+        self.sprite.rotation = Vec2(*v).angle()
+
 window = pyglet.window.Window(800, 600)
 key_state = key.KeyStateHandler()
 window.push_handlers(key_state)
 player = Player("Name", (150, 150))
+mouse_pos = (0,0)
+
 
 @window.event
 def on_draw():
     window.clear()
     player.draw()
+
+
+@window.event
+def on_mouse_motion(x, y, dx, dy):
+    global mouse_pos
+    mouse_pos= (x, y)
 
 def update(dt):
     x, y = 0, 0
@@ -59,6 +71,7 @@ def update(dt):
         x -= 1
     direction = Vec2(x,y).normalize()
     player.move(direction, dt)
+    player.look_at(mouse_pos)
 
 def main():
     pyglet.clock.schedule_interval(update, 1.0/60.0)
