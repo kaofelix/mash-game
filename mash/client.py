@@ -42,6 +42,8 @@ class Player(object):
         self.sprite.rotation = Vec2(*v).angle()
 
 window = pyglet.window.Window(800, 600)
+cursor = window.get_system_mouse_cursor(window.CURSOR_CROSSHAIR)
+window.set_mouse_cursor(cursor)
 key_state = key.KeyStateHandler()
 window.push_handlers(key_state)
 player = Player("Name", (150, 150))
