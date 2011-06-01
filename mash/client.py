@@ -1,8 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+import sys
 import pyglet
 from pyglet.window import key
 from vec2 import Vec2
+
+from twisted.internet.protocol import DatagramProtocol
+import pygletreactor
+pygletreactor.install()
+from twisted.internet import reactor
 
 class Player(object):
     speed = 75
@@ -41,12 +47,42 @@ class Player(object):
         v = (other_pos[0] - self.position[0], other_pos[1] - self.position[1])
         self.sprite.rotation = Vec2(*v).angle()
 
+player_map = {}
+
+class MulticastServerUDP(DatagramProtocol):
+    def startProtocol(self):
+        print 'Started Listening'
+        # Join a specific multicast group, which is the IP we will respond to
+        self.transport.joinGroup('224.0.0.1')
+
+    def send_pos(self, player):
+        self.transport.write("XXX:%s:%s:%s:%s:%s"%(localname,'p',
+                                               player.position[0], player.position[1],
+                                               player.sprite.rotation), ('224.0.0.1',8005))
+
+    def datagramReceived(self, datagram, address):
+        global player_map
+        if not datagram.startswith('XXX'):
+            pass
+        _, source, message, value1, value2, value3 = datagram.split(':')
+        if source == localname:
+            pass
+        else:
+            if not source in player_map:
+                player_map[source] = Player(source, (float(value1), float(value2)))
+            p = player_map[source]
+            p.position = (float(value1), float(value2))
+            p.sprite.rotation = float(value3)
+
+server = MulticastServerUDP()
 window = pyglet.window.Window(800, 600)
 cursor = window.get_system_mouse_cursor(window.CURSOR_CROSSHAIR)
 window.set_mouse_cursor(cursor)
 key_state = key.KeyStateHandler()
 window.push_handlers(key_state)
-player = Player("Name", (150, 150))
+
+localname = sys.argv[1]
+player = Player(localname, (150, 150))
 mouse_pos = (0,0)
 
 
@@ -54,6 +90,8 @@ mouse_pos = (0,0)
 def on_draw():
     window.clear()
     player.draw()
+    for p in player_map.values():
+        p.draw()
 
 
 @window.event
@@ -74,10 +112,12 @@ def update(dt):
     direction = Vec2(x,y).normalize()
     player.move(direction, dt)
     player.look_at(mouse_pos)
+    server.send_pos(player)
 
 def main():
-    pyglet.clock.schedule_interval(update, 1.0/60.0)
-    pyglet.app.run()
+    pyglet.clock.schedule_interval(update, 1.0/30.0)
+    reactor.listenMulticast(8005, server, listenMultiple=True)
+    reactor.run(call_interval=1/30.)
 
 if __name__ == '__main__':
     main()
